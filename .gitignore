@@ -23,3 +23,4 @@ target/
 .project
 .settings/
 .claude/settings.local.json
+*/.DS_Store
