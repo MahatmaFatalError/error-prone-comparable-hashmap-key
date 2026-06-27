@@ -24,6 +24,21 @@ class ComparableHashMapKeyTest {
   }
 
   @Test
+  void comparableHashMapDeclarationWithoutInitializer_noFinding() {
+    helper
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.HashMap;
+
+            class Test {
+              HashMap<String, Integer> names;
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   void newHashMapWithNonComparableKey_finding() {
     helper
         .addSourceLines(
@@ -37,6 +52,30 @@ class ComparableHashMapKeyTest {
               void test() {
                 // BUG: Diagnostic contains: HashMap key type 'Key' does not implement Comparable
                 HashMap<Key, Integer> keys = new HashMap<>();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  void hashMapFromMethodReturnWithNonComparableKey_finding() {
+    helper
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.HashMap;
+
+            final class Key {}
+
+            class Test {
+              HashMap<Key, Integer> create() {
+                return null;
+              }
+
+              void test() {
+                // BUG: Diagnostic contains: HashMap key type 'Key' does not implement Comparable
+                HashMap<Key, Integer> keys = create();
               }
             }
             """)
@@ -267,6 +306,29 @@ class ComparableHashMapKeyTest {
   }
 
   @Test
+  void lowerBoundedWildcard_finding() {
+    helper
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.HashMap;
+
+            final class Key implements Comparable<Key> {
+              @Override
+              public int compareTo(Key other) {
+                return 0;
+              }
+            }
+
+            class Test {
+              // BUG: Diagnostic contains: does not implement Comparable
+              HashMap<? super Key, Integer> keys;
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   void fullyQualifiedHashMap_finding() {
     helper
         .addSourceLines(
@@ -313,6 +375,23 @@ class ComparableHashMapKeyTest {
             class Test {
               @SuppressWarnings("rawtypes")
               HashMap keys = new HashMap();
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  void nonHashMapNewClass_noFinding() {
+    helper
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.ArrayList;
+
+            final class Key {}
+
+            class Test {
+              ArrayList<Key> keys = new ArrayList<>();
             }
             """)
         .doTest();

@@ -62,17 +62,11 @@ public final class ComparableHashMapKey extends BugChecker
 
   private static Type hashMapSupertype(Type type, VisitorState state) {
     Type hashMapType = state.getTypeFromString(HASH_MAP);
-    if (type == null || hashMapType == null) {
-      return null;
-    }
     return state.getTypes().asSuper(type, hashMapType.tsym);
   }
 
   private static boolean isComparableToSelf(Type type, VisitorState state) {
     Type upperBound = upperBound(type, state);
-    if (upperBound == null) {
-      return false;
-    }
     Type comparableType =
         state.getTypes().asSuper(upperBound, state.getSymtab().comparableType.tsym);
     if (comparableType == null || comparableType.getTypeArguments().isEmpty()) {
@@ -83,9 +77,6 @@ public final class ComparableHashMapKey extends BugChecker
   }
 
   private static Type upperBound(Type type, VisitorState state) {
-    if (type == null) {
-      return null;
-    }
     return switch (type.getKind()) {
       case WILDCARD -> state.getTypes().wildUpperBound(type);
       default -> type;
