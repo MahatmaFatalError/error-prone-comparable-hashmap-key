@@ -1,7 +1,8 @@
 # Comparable HashMap Key - Error Prone Plugin
 
 An [Error Prone](https://errorprone.info/) checker that flags `java.util.HashMap`
-uses whose key type does not implement `Comparable`.
+uses, including subclasses such as `LinkedHashMap`, whose key type does not
+implement `Comparable` to itself.
 
 The motivation is the HashMap collision case described in
 [Java map keys should always be Comparable](https://dev.to/carey/java-map-keys-should-always-be-comparable-2c1b):
@@ -15,6 +16,7 @@ final class Key {}
 
 HashMap<Key, String> byKey = new HashMap<>();
 Map<Key, String> byKeyInterface = new HashMap<>();
+LinkedHashMap<Key, String> linked = new LinkedHashMap<>();
 ```
 
 ## What it allows

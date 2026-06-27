@@ -3,8 +3,6 @@ package com.google.errorprone.bugpatterns;
 import static com.google.errorprone.BugPattern.SeverityLevel.WARNING;
 import static com.google.errorprone.matchers.Description.NO_MATCH;
 import static com.google.errorprone.util.ASTHelpers.getType;
-import static com.google.errorprone.util.ASTHelpers.isSameType;
-import static com.google.errorprone.util.ASTHelpers.isSubtype;
 
 import com.google.auto.service.AutoService;
 import com.google.errorprone.BugPattern;
@@ -20,7 +18,7 @@ import com.sun.tools.javac.code.Type;
 @AutoService(BugChecker.class)
 @BugPattern(
     name = "ComparableHashMapKey",
-    summary = "HashMap keys should implement Comparable to keep collision buckets efficient",
+    summary = "HashMap keys should implement Comparable to themselves",
     severity = WARNING)
 public final class ComparableHashMapKey extends BugChecker
     implements NewClassTreeMatcher, VariableTreeMatcher {
@@ -35,7 +33,7 @@ public final class ComparableHashMapKey extends BugChecker
   @Override
   public Description matchVariable(VariableTree tree, VisitorState state) {
     if (tree.getInitializer() instanceof NewClassTree newClassTree
-        && isHashMap(getType(newClassTree), state)) {
+        && hashMapSupertype(getType(newClassTree), state) != null) {
       return NO_MATCH;
     }
     return describeIfNonComparableHashMapKey(getType(tree), tree, state);
@@ -43,15 +41,13 @@ public final class ComparableHashMapKey extends BugChecker
 
   private Description describeIfNonComparableHashMapKey(
       Type candidateType, Tree tree, VisitorState state) {
-    if (!isHashMap(candidateType, state)) {
-      return NO_MATCH;
-    }
-    if (candidateType.getTypeArguments().isEmpty()) {
+    Type hashMapType = hashMapSupertype(candidateType, state);
+    if (hashMapType == null || hashMapType.getTypeArguments().isEmpty()) {
       return NO_MATCH;
     }
 
-    Type keyType = candidateType.getTypeArguments().get(0);
-    if (isComparable(keyType, state)) {
+    Type keyType = hashMapType.getTypeArguments().get(0);
+    if (isComparableToSelf(keyType, state)) {
       return NO_MATCH;
     }
 
@@ -59,21 +55,31 @@ public final class ComparableHashMapKey extends BugChecker
         .setMessage(
             String.format(
                 "HashMap key type '%s' does not implement Comparable. HashMap collision buckets"
-                    + " can degrade when equal-hash keys are not mutually comparable.",
+                    + " can degrade when equal-hash keys are not comparable to themselves.",
                 keyType))
         .build();
   }
 
-  private static boolean isHashMap(Type type, VisitorState state) {
+  private static Type hashMapSupertype(Type type, VisitorState state) {
     Type hashMapType = state.getTypeFromString(HASH_MAP);
-    return type != null
-        && hashMapType != null
-        && isSameType(state.getTypes().erasure(type), hashMapType, state);
+    if (type == null || hashMapType == null) {
+      return null;
+    }
+    return state.getTypes().asSuper(type, hashMapType.tsym);
   }
 
-  private static boolean isComparable(Type type, VisitorState state) {
+  private static boolean isComparableToSelf(Type type, VisitorState state) {
     Type upperBound = upperBound(type, state);
-    return upperBound != null && isSubtype(upperBound, state.getSymtab().comparableType, state);
+    if (upperBound == null) {
+      return false;
+    }
+    Type comparableType =
+        state.getTypes().asSuper(upperBound, state.getSymtab().comparableType.tsym);
+    if (comparableType == null || comparableType.getTypeArguments().isEmpty()) {
+      return false;
+    }
+    Type comparableArgument = comparableType.getTypeArguments().get(0);
+    return state.getTypes().isSameType(comparableArgument, upperBound);
   }
 
   private static Type upperBound(Type type, VisitorState state) {
